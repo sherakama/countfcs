@@ -32,13 +32,27 @@ function drush_countfcs($field_name = NULL) {
 
   // Must be a string.
   if (!isset($field_name) || !is_string($field_name)) {
-    drush_log("ERROR: Bad field name", "error");
-    return;
+    $available = db_select("field_config", "config")
+      ->fields("config", array("field_name"))
+      ->condition("type", "field_collection")
+      ->execute();
+
+    if ($available->rowCount() == 0) {
+      drush_log("Sorry, but there are no field collections available.", "error");
+    }
+
+    $options = array();
+    while($field = $available->fetchObject()) {
+      $options[$field->field_name] = $field->field_name;
+    }
+
+    $field_name = drush_choice($options, dt("Which field collection do you want to count?"));
   }
 
   // Patch things up.
   $fc_name = $field_name; // "field_s_course_section_info";
   $real_name = "field_data_" . $fc_name;
+  $total_fcs = 0;
 
   // Better check this if you don't want flames everywhere.
   if (!db_table_exists($real_name)) {
@@ -57,9 +71,11 @@ function drush_countfcs($field_name = NULL) {
 
   // Something!
   while($result = $fcs->fetchAssoc()) {
+    $total_fcs += (int) $result["count"];
     drush_log("Entity ID: " . $result['entity_id'] . " has " . $result["count"] . " Field Collection items.", "status");
   }
 
-  drush_log("Total field collections: " . $fcs->rowCount(), "status");
+  drush_log("Total field collections: " . $total_fcs, "status");
+  drush_log("Total entities: " . $fcs->rowCount(), "status");
 
 }
